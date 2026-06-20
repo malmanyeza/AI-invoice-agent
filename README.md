@@ -1,73 +1,248 @@
-# Getting Started with Create React App
+# AI Invoice Agent (AI Stock Manager)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+The AI Invoice Agent is an intelligent business automation system designed to handle inventory management, customer profiling, and invoice-related tasks through natural language interaction.
 
-## Available Scripts
+Rather than manually searching through databases, writing SQL queries, or making administrative requests to finance and warehouse teams, users can interact with the system using plain-English prompts such as:
+* *“Generate an invoice for OK Zimbabwe containing 5 cases of Coca Cola and 3 cases of Mazoe Orange Crush”*
+* *“I would like to add a new customer called ABC Trading registered at 45 Leopold Takawira, Harare”*
+* *“Please add a new product called Fanta with a price of $110 per case, 24 units per case, and 500ml volume”*
 
-In the project directory, you can run:
+The AI parses the request, executes local business logic via tool/function calling, cross-checks and fuzzy-matches entities, writes to the local database, and generates structured PDF invoices ready for download.
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Architecture & Interaction Flow
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+The system employs a client-side AI integration model where the React application communicates directly with the OpenAI Assistants API (utilizing `gpt-4o-mini` and the Thread run lifecycle) and interfaces with a local database via Firebase Local Emulators.
 
-### `npm test`
+```mermaid
+graph TD
+    User([User]) -->|Natural Language Prompt| ReactApp[💻 React Frontend UI]
+    ReactApp -->|Send Prompt to Thread| OpenAI[OpenAI Assistants API]
+    OpenAI -->|Tool Call: finalize_invoice| ReactApp
+    OpenAI -->|Tool Call: add_customer / add_product| ReactApp
+    
+    subgraph Client-Side Business Logic
+        ReactApp -->|Fuzzy Match Entities| Fuzzball[🔍 Fuzzball Engine]
+        Fuzzball -->|Verify Names| LocalDB[(Firebase Firestore Emulator)]
+        ReactApp -->|Write Records| LocalDB
+        ReactApp -->|Generate Invoice PDF| jsPDF[jsPDF Engine]
+    end
+    
+    jsPDF -->|Save to Downloads| Downloads([Local Downloads Folder])
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## Core Capabilities
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 1. Natural Language Understanding & Conversational Flow
+* Interprets complex multi-step user prompts in plain English.
+* Maintains thread context for back-and-forth confirmation dialogues (e.g., confirming fuzzy matches).
+* Operates as an automated conversational clerk.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### 2. Fuzzy Entity Resolution
+* Powered by `fuzzball`, the agent handles spelling mistakes and abbreviations in user requests (e.g., matching *"OK Zim"* to *"OK Zimbabwe Ltd"* or *"coke"* to *"Coca Cola"*).
+* If a match falls below an exact match but above a confidence threshold, the agent will prompt the user with a confirmation query (e.g., *"Did you mean 'OK Zimbabwe Ltd' instead of 'OK Zim'?"*) to avoid database corruption.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 3. Automated PDF Invoice Generation
+* Implemented client-side using `jsPDF` and `jspdf-autotable`.
+* Calculates subtotal, applies Zimbabwean VAT rules (13.04% rate), and computes the total invoice amount.
+* Outputs a professional, production-ready invoice PDF detailing billing information, line items, and company banking/contact info, saving it directly to the user's browser `Downloads` folder.
 
-### `npm run eject`
+### 4. Database Ingestion & Verification
+* Verifies inventory availability, prices, and customer accounts before processing orders.
+* Empowers users to create new customer accounts and product records inline via conversational commands.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 5. Multi-View Dashboard Interface
+* **AI Assistant**: A sleek chat screen featuring interactive sample templates, typing indicators, and message history.
+* **Inventory**: Live stock level tables with filtering options and CSV/PDF export.
+* **Customers**: Profile overview outlining contact numbers, emails, addresses, credit levels, and payment statuses (Good/Overdue).
+* **Place Order**: A visual transaction manager displaying purchase histories, payment statuses, and transaction volumes.
+* **Stats**: Interactive charts (Sales Trends, Stock Levels, Category Breakdowns) powered by `chart.js`.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Tech Stack
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend** | React (v19) | Application structure and reactive UI components. |
+| **Component Library** | Material UI (MUI v6) | Pre-styled, polished inputs, drawers, modals, and grids. |
+| **Aesthetics** | Glassmorphic CSS | Modern visual design featuring backdrop filters, glowing blurs, and transparent dark panels. |
+| **AI Orchestration** | OpenAI Assistants API | Core conversational logic, schema-strict function calling. |
+| **Database & Auth** | Firebase (Firestore + Auth) | Persistent document store and auth emulator layers. |
+| **Fuzzy Matching** | Fuzzball | Similarity scoring and validation of customer/product names. |
+| **PDF Processing** | jsPDF & jsPDF-AutoTable | Client-side dynamic PDF compilation and download management. |
+| **Data Analytics** | Chart.js & React-Chartjs-2 | Visual telemetry for inventory breakdowns and sales trends. |
 
-## Learn More
+---
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Workspace Folder Structure
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```filepath
+AI-invoice-agent-main/
+├── functions/                     # Firebase Functions environment (Node.js)
+│   ├── index.js                   # Entry point for backend functions (currently clean)
+│   └── package.json               # Functions-specific dependencies
+├── public/                        # Static assets & HTML template wrapper
+└── src/
+    ├── assets/                    # Background graphics and company branding images
+    ├── components/                # Modular UI components
+    │   ├── AIAssistantScreen/     # Chats history viewer and message input
+    │   ├── CustomersScreen/       # Add customer form modals
+    │   ├── InventoryScreen/       # Table structures and filtering headers
+    │   ├── PlaceOrderScreen/      # Order creation interfaces
+    │   ├── StatsScreen/           # Chart.js visualization wrappers
+    │   ├── Header.js              # Global system top bar
+    │   └── SideDrawer.js          # Main navigation bar (Drawer layout)
+    ├── config/
+    │   └── firebaseConfig.js      # App configuration pointing to Local Emulators
+    ├── context/                   # React Context Providers (State & Core Actions)
+    │   ├── AppContext.js          # Global loading states and error boundaries
+    │   ├── CustomersContext.js    # Firestore integration for customer metadata
+    │   ├── InventoryContext.js    # Firestore integration for product listings
+    │   └── OrdersContext.js       # Core logic: Assistant run loops, fuzzy matching, and PDF generation
+    ├── screens/                   # High-level route views
+    │   ├── AIAssistantScreen.js   # Chat interface main frame
+    │   ├── CustomersScreen.js     # Customer management screen
+    │   ├── InventoryScreen.js     # Stock manager panel
+    │   ├── PlaceOrderScreen.js    # Manual order placing & billing panel
+    │   └── StatsScreen.js         # Analytics and visual stats panel
+    ├── App.css                    # Global application styles
+    ├── App.js                     # Root component declaring Context Providers & Router
+    ├── index.css                  # Core Glassmorphic design system and utility classes
+    └── index.js                   # Application bootstrap
+```
 
-### Code Splitting
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Installation & Setup
 
-### Analyzing the Bundle Size
+### 1. Prerequisites
+Ensure you have the following installed on your developer machine:
+* Node.js (v18 or higher recommended)
+* Firebase CLI (for running emulators)
+* An OpenAI API Key (with access to Assistant APIs)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### 2. Clone and Setup Environment
+Navigate into the inner project directory:
+```bash
+cd AI-invoice-agent-main/AI-invoice-agent-main
+```
 
-### Making a Progressive Web App
+Create a `.env` file in the root of the project directory and configure your OpenAI API Key:
+```env
+REACT_APP_OPENAI_API_KEY="your-openai-api-key-here"
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### 3. Install Dependencies
+Install all client dependencies:
+```bash
+npm install
+```
 
-### Advanced Configuration
+### 4. Boot Up Firebase Local Emulators
+The application is pre-configured to read and write to Firestore and Auth through the local emulator suite to keep development sandbox-safe.
+Start the emulators:
+```bash
+firebase emulators:start
+```
+*Note: Make sure your Firestore emulator is running on port `8080` and the Auth emulator on port `9099` (as defined in firebaseConfig.js).*
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### 5. Launch the React Client
+Open a separate terminal window and run:
+```bash
+npm start
+```
+Your browser should open automatically to `http://localhost:3000`.
 
-### Deployment
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## OpenAI Assistant Function Configurations
 
-### `npm run build` fails to minify
+The application creates/calls an OpenAI Assistant using the following strict function schemas:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-"# Inventory-Management-System" 
-"# AI-Inventory-Management-System-" 
-"# Ai-Inventory-Management-System" 
+### 1. `finalize_invoice`
+Registers the invoice details after fuzzy entity validation:
+```json
+{
+  "name": "finalize_invoice",
+  "description": "Finalizes the invoice with complete data",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "customerName": { "type": "string" },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "productName": { "type": "string" },
+            "quantity": { "type": "number" }
+          },
+          "required": ["productName", "quantity"]
+        }
+      },
+      "date": { "type": "string", "description": "Date in YYYY-MM-DD format" }
+    },
+    "required": ["customerName", "items", "date"]
+  }
+}
+```
+
+### 2. `add_customer`
+Saves a new customer to the database:
+```json
+{
+  "name": "add_customer",
+  "description": "Adds a new customer to the database",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "tradeName": { "type": "string" },
+      "registeredName": { "type": "string" },
+      "vatNumber": { "type": "string" },
+      "tinNumber": { "type": "string" },
+      "email": { "type": "string" },
+      "phone": { "type": "string" },
+      "address": { "type": "string" }
+    },
+    "required": ["tradeName", "registeredName", "vatNumber", "tinNumber", "email", "phone", "address"]
+  }
+}
+```
+
+### 3. `add_product`
+Saves a new product to the database:
+```json
+{
+  "name": "add_product",
+  "description": "Adds a new product to the database",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string" },
+      "pricePerCase": { "type": "number" },
+      "unitsPerCase": { "type": "number" },
+      "volume": { "type": "number" }
+    },
+    "required": ["name", "pricePerCase", "unitsPerCase", "volume"]
+  }
+}
+```
+
+---
+
+## Business Problem Solved
+1. **Zero Admin Wait Time**: Operations managers can issue invoices on the spot in front of clients using simple messaging, without waiting for the accounting desk.
+2. **Reduced Human Error**: Standardizes unit calculations, subtotaling, VAT formulas, and formats professional invoices in standard PDFs.
+3. **Database Integrity**: Blocks duplicate or incorrect entries through automatic fuzzy verification.
+4. **Instant Self-Service Data**: Simplifies complex database searching down to a simple question: *"What is the status of our latest inventory?"*
+
+---
+
+## Why This Project Is Strong
+* **Real-World Agentic Workflow**: Showcases true tool calling and execution loops where the LLM behaves as a reasoning controller, returning structured parameters for client execution.
+* **Sandbox-First Localized Architecture**: Includes fully configured rules and configuration variables for running Firebase services completely offline under Local Emulators.
+* **Beautiful User Experience**: Incorporates dynamic animations, glassmorphic headers, visual layouts, and dark panels that exceed average administrative portals.
